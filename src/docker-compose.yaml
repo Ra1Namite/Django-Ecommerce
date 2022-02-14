@@ -1,0 +1,44 @@
+version: "3.9"
+
+services: 
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/usr/src/app 
+    ports:
+      - "8000:8000"
+    depends_on:
+      - rabbit   
+
+  rabbit:
+    image: rabbitmq:3.9-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin 
+
+    ports:
+      # AMQP protocol port
+      - "5672:5672"
+      # HTTP management UI
+      - "15672:15672"
+
+  celery:
+    build: .
+    command: celery -A myshop worker -l info
+    volumes:
+      - .:/usr/src/app 
+    
+    depends_on:
+      - rabbit
+      - web 
+
+  dashboard:
+    build: .
+    command: flower -A myshop --port=5555 --broker=amqp://admin:admin@rabbit:5672/
+    ports:
+      - 5555:5555
+    depends_on:
+      - web 
+      - rabbit 
+      - celery 
